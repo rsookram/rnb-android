@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application' version '8.10.1' apply true
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+android {
+    namespace 'rnb'
+
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "io.github.rsookram.rnb"
+        minSdk 35
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+        release {
+            if (System.getenv("STORE_FILE") != null) {
+                storeFile file(System.getenv("STORE_FILE"))
+                storePassword System.getenv("STORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles 'proguard-rules.pro'
+
+            signingConfig signingConfigs.release
+        }
+    }
+
+    lint {
+        checkReleaseBuilds = false
+    }
+}
