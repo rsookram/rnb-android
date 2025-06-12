@@ -9,8 +9,10 @@ import android.graphics.Bitmap;
 import android.graphics.ImageDecoder;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.text.Spannable;
 import android.text.TextPaint;
 import android.util.TypedValue;
@@ -19,22 +21,32 @@ import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.AbsListView;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Locale;
 
-public class MainActivity extends Activity implements AbsListView.OnScrollListener, View.OnClickListener {
+public class MainActivity extends Activity implements AbsListView.OnScrollListener, View.OnClickListener, FilenameFilter {
 
-    private static final int SELECT_BOOK = 1;
+    private static final int REQUEST_PERMISSION = 1;
+    private static final String EXTENSION = ".rnb";
+    static final String BOOKS_DIR = "books";
 
     private ListView listView;
     private ProgressView progressView;
     private Book book;
+
+    // This is effectively a separate navigation destination, but there's no special handling for
+    // saving the UI state or handling the back button when it's shown. This is fine since I rarely
+    // open it, and when I use it, it's for a short time.
+    private ListView fileListView;
+    private File[] files;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,12 +66,21 @@ public class MainActivity extends Activity implements AbsListView.OnScrollListen
         progressView.setOnClickListener(this);
 
         Storage.LoadResult loadResult = Storage.load(this);
-        if (!Environment.isExternalStorageManager() || loadResult == null) {
-            onClick(null);
+        if (!Environment.isExternalStorageManager()) {
+            startActivityForResult(
+                    new Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.fromParts("package", getPackageName(), null)
+                    ),
+                    REQUEST_PERMISSION
+            );
+            return;
+        } else if (loadResult == null) {
+            setUpLibrary();
             return;
         }
 
-        File file = new File(new File(Environment.getExternalStorageDirectory(), "books"), loadResult.fileName);
+        File file = new File(new File(Environment.getExternalStorageDirectory(), BOOKS_DIR), loadResult.fileName);
         setup(file);
 
         float offsetInContentBlock = loadResult.offsetInContentBlock;
@@ -118,7 +139,37 @@ public class MainActivity extends Activity implements AbsListView.OnScrollListen
 
     @Override
     public void onClick(View v) {
-        startActivityForResult(new Intent(this, SelectBookActivity.class), SELECT_BOOK);
+        if (v instanceof ProgressView) {
+            setUpLibrary();
+            return;
+        }
+
+        ListView fileListView = this.fileListView;
+        int position = fileListView.getPositionForView(v);
+        if (position == AdapterView.INVALID_POSITION) {
+            return;
+        }
+
+        ((ViewGroup) findViewById(android.R.id.content)).removeView(fileListView);
+        this.fileListView = null;
+
+        setup(files[position]);
+
+        files = null;
+    }
+
+    private void setUpLibrary() {
+        fileListView = Views.addContentView(this);
+
+        File dir = new File(Environment.getExternalStorageDirectory(), BOOKS_DIR);
+        files = dir.listFiles(this);
+
+        fileListView.setAdapter(new FileAdapter(this, files));
+    }
+
+    @Override
+    public boolean accept(File d, String name) {
+        return name.endsWith(EXTENSION);
     }
 
     @Override
@@ -146,9 +197,8 @@ public class MainActivity extends Activity implements AbsListView.OnScrollListen
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == SELECT_BOOK && resultCode == RESULT_OK) {
-            String path = data.getStringExtra(SelectBookActivity.EXTRA_PATH);
-            setup(new File(path));
+        if (requestCode == REQUEST_PERMISSION && Environment.isExternalStorageManager()) {
+            setUpLibrary();
         }
     }
 
@@ -262,6 +312,31 @@ public class MainActivity extends Activity implements AbsListView.OnScrollListen
 
         @Override
         public void onViewDetachedFromWindow(View v) {
+        }
+    }
+
+    private static class FileAdapter extends ArrayAdapter<File> {
+
+        private final View.OnClickListener onClickListener;
+
+        FileAdapter(MainActivity activity, File[] files) {
+            super(activity, -1 /* unused */, files);
+            this.onClickListener = activity;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            TextView view = (TextView) convertView;
+            if (view == null) {
+                view = Views.fileItem(parent);
+            }
+
+            File file = getItem(position);
+
+            view.setText(file.getName().replace(EXTENSION, ""));
+            view.setOnClickListener(onClickListener);
+
+            return view;
         }
     }
 }

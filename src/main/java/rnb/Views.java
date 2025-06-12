@@ -74,12 +74,16 @@ public class Views {
         return view;
     }
 
-    public static ListView setContentView(SelectBookActivity activity) {
+    public static ListView addContentView(rnb.MainActivity activity) {
         ListView listView = new ListView(activity);
         listView.setDivider(null);
         listView.setScrollBarStyle(ListView.SCROLLBARS_OUTSIDE_OVERLAY);
 
-        activity.setContentView(listView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        try (TypedArray a = activity.obtainStyledAttributes(new int[]{android.R.attr.windowBackground})) {
+            listView.setBackgroundColor(a.getColor(0, 0));
+        }
+
+        activity.addContentView(listView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
         return listView;
     }

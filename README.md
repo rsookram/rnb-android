@@ -9,8 +9,8 @@ tried to make the app small, so there are no third-party dependencies, and it's
 this small:
 
 - `.apk`: 28,932 B
-- `classes.dex`: 18,248 B
-- `classes.oat`: 43,048 B (when AOT with `dex2oat`)
+- `classes.dex`: 17,888 B
+- `classes.oat`: 41,816 B (when AOT with `dex2oat`)
 
 ## How to use
 
